@@ -8,11 +8,14 @@ import androidx.core.content.ContextCompat;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.DownloadManager;
+import android.app.ProgressDialog;
 import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -24,6 +27,9 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.net.Uri;
+import android.widget.TextView;
+
+import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
@@ -36,15 +42,17 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
     private Button buttonUpload;
     private Button buttonSend;
-
+    private Button buttonDownloadVideo;
+    private Button buttonDownloadFile;
+    private TextView countView;
     private static final int SELECT_VIDEO = 3;
     final static int APP_STORAGE_ACCESS_REQUEST_CODE = 501; // Any value
-
-
+    private String particleCount;
     private String selectedPath;
     static int serverResponseCode;
     // Storage Permissions
@@ -62,9 +70,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         buttonUpload = (Button) findViewById(R.id.buttonUpload);
         buttonSend = (Button) findViewById(R.id.buttonSend);
+        buttonDownloadVideo = (Button) findViewById(R.id.buttonDownloadVideo);
+        buttonDownloadFile = (Button) findViewById(R.id.buttonDownloadFile);
+        countView = (TextView) findViewById(R.id.textCount);
+        countView.setText("Particle count will be shown");
+
         buttonUpload.setOnClickListener(this);
         buttonSend.setOnClickListener(this);
-
+        buttonDownloadVideo.setOnClickListener(this);
+        buttonDownloadFile.setOnClickListener(this);
     }
 
     private void chooseVideo() {
@@ -105,11 +119,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private void sendVideo() {
-        verifyStoragePermissions(this);
-        int response = upLoad2Server(""+selectedPath);
-        System.out.println("response "+response);
-    }
+//    private void sendVideo() {
+//        verifyStoragePermissions(this);
+//
+//    }
 
 
 //    public String getPathTest(Uri uri) {
@@ -325,97 +338,151 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     }
-    public static int upLoad2Server(String sourceFileUri) {
-        String upLoadServerUri = "https://127.0.0.1:5000/";
-        // String [] string = sourceFileUri;
-        String fileName = sourceFileUri;
+//    public static int upLoad2Server(String sourceFileUri)
+//    {
+//        String upLoadServerUri = "https://127.0.0.1:5000/";
+//        // String [] string = sourceFileUri;
+//        String fileName = sourceFileUri;
+//
+//        HttpURLConnection conn = null;
+//        DataOutputStream dos = null;
+//        DataInputStream inStream = null;
+//        String lineEnd = "\r\n";
+//        String twoHyphens = "--";
+//        String boundary = "*****";
+//        int bytesRead, bytesAvailable, bufferSize;
+//        byte[] buffer;
+//        int maxBufferSize = 1 * 1024 * 1024;
+//        String responseFromServer = "";
+//
+//        File sourceFile = new File(sourceFileUri);
+//        if (!sourceFile.isFile()) {
+//            Log.e("Huzza", "Source File Does not exist");
+//            return 0;
+//        }
+//        try { // open a URL connection to the Servlet
+//            FileInputStream fileInputStream = new FileInputStream(sourceFile);
+//            URL url = new URL(upLoadServerUri);
+//            conn = (HttpURLConnection) url.openConnection(); // Open a HTTP  connection to  the URL
+//            conn.setDoInput(true); // Allow Inputs
+//            conn.setDoOutput(true); // Allow Outputs
+//            conn.setUseCaches(false); // Don't use a Cached Copy
+//            conn.setRequestMethod("POST");
+//            conn.setRequestProperty("Connection", "Keep-Alive");
+//            conn.setRequestProperty("ENCTYPE", "multipart/form-data");
+//            conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+//            conn.setRequestProperty("uploaded_file", fileName);
+//            dos = new DataOutputStream(conn.getOutputStream());
+//
+//            dos.writeBytes(twoHyphens + boundary + lineEnd);
+//            dos.writeBytes("Content-Disposition: form-data; name=\"uploaded_file\";filename=\""+ fileName + "\"" + lineEnd);
+//            dos.writeBytes(lineEnd);
+//
+//            bytesAvailable = fileInputStream.available(); // create a buffer of  maximum size
+//            Log.i("Huzza", "Initial .available : " + bytesAvailable);
+//
+//            bufferSize = Math.min(bytesAvailable, maxBufferSize);
+//            buffer = new byte[bufferSize];
+//
+//            // read file and write it into form...
+//            bytesRead = fileInputStream.read(buffer, 0, bufferSize);
+//
+//            while (bytesRead > 0) {
+//                dos.write(buffer, 0, bufferSize);
+//                bytesAvailable = fileInputStream.available();
+//                bufferSize = Math.min(bytesAvailable, maxBufferSize);
+//                bytesRead = fileInputStream.read(buffer, 0, bufferSize);
+//            }
+//
+//            // send multipart form data necesssary after file data...
+//            dos.writeBytes(lineEnd);
+//            dos.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd);
+//
+//            // Responses from the server (code and message)
+//            serverResponseCode = conn.getResponseCode();
+//            String serverResponseMessage = conn.getResponseMessage();
+//
+//            Log.i("Upload file to server", "HTTP Response is : " + serverResponseMessage + ": " + serverResponseCode);
+//            // close streams
+//            Log.i("Upload file to server", fileName + " File is written");
+//            fileInputStream.close();
+//            dos.flush();
+//            dos.close();
+//        } catch (MalformedURLException ex) {
+//            ex.printStackTrace();
+//            Log.e("Upload file to server", "error: " + ex.getMessage(), ex);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+////this block will give the response of upload link
+//        try {
+//            BufferedReader rd = new BufferedReader(new InputStreamReader(conn
+//                    .getInputStream()));
+//            String line;
+//            while ((line = rd.readLine()) != null) {
+//                Log.i("Huzza", "RES Message: " + line);
+//            }
+//            rd.close();
+//        } catch (IOException ioex) {
+//            Log.e("Huzza", "error: " + ioex.getMessage(), ioex);
+//        }
+//        return serverResponseCode;  // like 200 (Ok)
+//
+//    } // end upLoad2Server
+//    class DownloadFileFromURL extends AsyncTask<String, String, String> {}
 
-        HttpURLConnection conn = null;
-        DataOutputStream dos = null;
-        DataInputStream inStream = null;
-        String lineEnd = "\r\n";
-        String twoHyphens = "--";
-        String boundary = "*****";
-        int bytesRead, bytesAvailable, bufferSize;
-        byte[] buffer;
-        int maxBufferSize = 1 * 1024 * 1024;
-        String responseFromServer = "";
+    private void sendVideo() {
+        class VideoUploadActivity extends AsyncTask<Void, Void, String> {
 
-        File sourceFile = new File(sourceFileUri);
-        if (!sourceFile.isFile()) {
-            Log.e("Huzza", "Source File Does not exist");
-            return 0;
-        }
-        try { // open a URL connection to the Servlet
-            FileInputStream fileInputStream = new FileInputStream(sourceFile);
-            URL url = new URL(upLoadServerUri);
-            conn = (HttpURLConnection) url.openConnection(); // Open a HTTP  connection to  the URL
-            conn.setDoInput(true); // Allow Inputs
-            conn.setDoOutput(true); // Allow Outputs
-            conn.setUseCaches(false); // Don't use a Cached Copy
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Connection", "Keep-Alive");
-            conn.setRequestProperty("ENCTYPE", "multipart/form-data");
-            conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-            conn.setRequestProperty("uploaded_file", fileName);
-            dos = new DataOutputStream(conn.getOutputStream());
+            ProgressDialog uploading;
 
-            dos.writeBytes(twoHyphens + boundary + lineEnd);
-            dos.writeBytes("Content-Disposition: form-data; name=\"uploaded_file\";filename=\""+ fileName + "\"" + lineEnd);
-            dos.writeBytes(lineEnd);
-
-            bytesAvailable = fileInputStream.available(); // create a buffer of  maximum size
-            Log.i("Huzza", "Initial .available : " + bytesAvailable);
-
-            bufferSize = Math.min(bytesAvailable, maxBufferSize);
-            buffer = new byte[bufferSize];
-
-            // read file and write it into form...
-            bytesRead = fileInputStream.read(buffer, 0, bufferSize);
-
-            while (bytesRead > 0) {
-                dos.write(buffer, 0, bufferSize);
-                bytesAvailable = fileInputStream.available();
-                bufferSize = Math.min(bytesAvailable, maxBufferSize);
-                bytesRead = fileInputStream.read(buffer, 0, bufferSize);
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                uploading = ProgressDialog.show(MainActivity.this, "Uploading File", "Please wait...", false, false);
             }
 
-            // send multipart form data necesssary after file data...
-            dos.writeBytes(lineEnd);
-            dos.writeBytes(twoHyphens + boundary + twoHyphens + lineEnd);
-
-            // Responses from the server (code and message)
-            serverResponseCode = conn.getResponseCode();
-            String serverResponseMessage = conn.getResponseMessage();
-
-            Log.i("Upload file to server", "HTTP Response is : " + serverResponseMessage + ": " + serverResponseCode);
-            // close streams
-            Log.i("Upload file to server", fileName + " File is written");
-            fileInputStream.close();
-            dos.flush();
-            dos.close();
-        } catch (MalformedURLException ex) {
-            ex.printStackTrace();
-            Log.e("Upload file to server", "error: " + ex.getMessage(), ex);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-//this block will give the response of upload link
-        try {
-            BufferedReader rd = new BufferedReader(new InputStreamReader(conn
-                    .getInputStream()));
-            String line;
-            while ((line = rd.readLine()) != null) {
-                Log.i("Huzza", "RES Message: " + line);
+            @Override
+            protected void onPostExecute(String s) {
+                super.onPostExecute(s);
+                uploading.dismiss();
+                countView.setText("Particle count: "+particleCount);
+//                textViewResponse.setText(Html.fromHtml("<b>Uploaded at <a href='" + s + "'>" + s + "</a></b>"));
+//                textViewResponse.setMovementMethod(LinkMovementMethod.getInstance());
             }
-            rd.close();
-        } catch (IOException ioex) {
-            Log.e("Huzza", "error: " + ioex.getMessage(), ioex);
+
+            @Override
+            protected String doInBackground(Void... params) {
+                com.example.celltracker.VideoUploadActivity u = new com.example.celltracker.VideoUploadActivity();
+                String msg = u.upLoad2Server(selectedPath);
+                // storage_emulated_0_Download_cell_testing_vid_4s_1.mp4:58
+                particleCount = msg.split(":")[1];
+                return msg;
+            }
         }
-        return serverResponseCode;  // like 200 (Ok)
+        VideoUploadActivity uv = new VideoUploadActivity();
+        uv.execute();
+    }
 
-    } // end upLoad2Server
+    // file name eg: storage_emulated_0_Download_cell_tesing_vid_4s_result.txt
+    private void downloadFile(String file){
+        String uriString = "http://10.0.2.2:5000/retrieve/"+file+".txt";
+        Uri uri = Uri.parse(uriString);
+        DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        DownloadManager.Request request = new DownloadManager.Request(uri);
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
+        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,file+".txt");
+        long reference = manager.enqueue(request);
 
+    }
+    private void downloadVideo(String video){
+        DownloadManager downloadmanager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+        Uri uri = Uri.parse("http://10.0.2.2:5000/retrieve/"+video+".mp4");
+        DownloadManager.Request request = new DownloadManager.Request(uri);
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
+        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,video+".mp4");
+        downloadmanager.enqueue(request);
+    }
     @Override
     public void onClick(View v) {
         if (v == buttonUpload) {
@@ -423,6 +490,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         if (v == buttonSend) {
             sendVideo();
+        }
+        if (v == buttonDownloadVideo || v == buttonDownloadFile) {
+            // parse path
+            // : /storage/emulated/0/Download/cell_testing_vid_4s (1).mp4
+            // : storage_emulated_0_Download_cell_tesing_vid_4s_1.txt
+            String filepath = selectedPath.split(Pattern.quote("."))[0];
+            filepath = filepath.replaceAll("\\s+", "");
+            filepath = filepath.replaceAll("[^a-zA-Z0-9]", "_");
+            while(filepath.charAt(0) == '_'){
+                filepath = filepath.substring(1);
+            }
+            while(filepath.charAt(filepath.length()-1) == '_'){
+                filepath = filepath.substring(0,filepath.length()-1);
+            }
+            if (v == buttonDownloadVideo){
+                downloadVideo(filepath);
+            }else if (v == buttonDownloadFile){
+                downloadFile(filepath);
+            }
         }
     }
 }
