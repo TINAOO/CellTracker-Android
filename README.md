@@ -10,5 +10,5 @@ After it gets running, open localhost web page http://127.0.0.1:5000
 
 ### Second Step
 1. Clone repo and open it using Android Studio
-2. Click run button on the top of Android Studio window, make sure it run on your connected device
+2. Click run button on the top of Android Studio window, make sure it runs on your connected device
 3. The application will be loaded on the device
